@@ -1,85 +1,81 @@
 require('dotenv').config()
 const { Telegraf } = require('telegraf')
 const { message } = require('telegraf/filters')
+const {weatherCommand} = require('./src/weatherCommand')
 const axios = require('axios')
+const { v4: uuidv4 } = require('uuid')
 
 const bot = new Telegraf(process.env.TELEGRAM_API_KEY)
 
 bot.start((ctx) => ctx.reply(`Welcome! Добро пожаловать! ${ctx.update.message.from.first_name}, я pug terminator info bot. Возможно Игорь меня не забросит и реализует различные приколюхи тут. Пока что можно только получить информацию о текущей погоде в Волгограде. Просто отправь мне /weather.`))
 
-bot.help((ctx) => ctx.reply('Send me a sticker'))
-bot.on(message('sticker'), (ctx) => ctx.reply('👍'))
-bot.hears('hi', (ctx) => ctx.reply('Hey there'))
-
 bot.command('weather', async (ctx) => {
-    const requestForecastConfig = {
-         method: 'get',
-         url: 'http://api.openweathermap.org/data/2.5/weather',
-         params: {
-             q: 'Volgograd,ru',
-             appid: process.env.FORECAST_API_KEY,
-             units: 'metric'
-         }
+    await weatherCommand(ctx);
+})
+
+let gigaExpiresTime;
+let gigaAccessToken;
+bot.command('giga', async (ctx) => {
+    const requestText = ctx.update.message.text.replace('/giga', '');
+
+    const date = new Date();
+
+    if (!gigaExpiresTime || gigaExpiresTime < date.getTime()) {
+        const config = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'RqUID': uuidv4(),
+                'Authorization': `Basic ${btoa(`${process.env.GIGA_API_CLIENT_SECRET}:${process.env.GIGA_AUTH_DATA_KEY}`)}`
+            },
+            data: {
+                'scope': 'GIGACHAT_API_PERS'
+            }
+        };
+
+        try {
+            const { access_token, expires_at } = await axios(config);
+            gigaAccessToken = access_token;
+            gigaExpiresTime = expires_at;
+        } catch (e) {
+            console.log(e)
+            return;
+        }
+    }
+
+    const config = {
+        method: 'post',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${gigaAccessToken}`
+        },
+        data: {
+            model: "GigaChat:latest",
+            messages: [
+                {
+                    role: "user",
+                    content: requestText
+                }
+            ],
+            temperature: 1.0,
+            top_p: 0.1,
+            n: 1,
+            stream: false,
+            max_tokens: 512,
+            repetition_penalty: 1
+        }
     }
 
     try {
+        const response = await axios(config);
 
-        // {
-        //     coord: { lon: 44.5018, lat: 48.7194 },
-        //     weather: [
-        //         { id: 801, main: 'Clouds', description: 'few clouds', icon: '02n' }
-        //     ],
-    //         base: 'stations',
-        //     main: {
-                //     temp: -2.57,
-                //         feels_like: -5.45,
-                //         temp_min: -2.95,
-                //         temp_max: -2.57,
-                //         pressure: 1027,
-                //         humidity: 74
-                //      },
-        //              visibility: 10000,
-        //              wind: { speed: 2, deg: 270 },
-        //              clouds: { all: 20 },
-        //              dt: 1710269097,
-        //         sys: {
-                    //     type: 1,
-                    //         id: 8973,
-                    //         country: 'RU',
-                    //         sunrise: 1710213679,
-                    //         sunset: 1710255734
-                    // },
-//                  timezone: 10800,
-        //         id: 472757,
-        //     name: 'Volgograd',
-        //     cod: 200
-        // }
-
-
-        const { data } = await axios(requestForecastConfig);
-        console.log(new Date(data.dt))
-        const date = new Date(data.dt);
-
-        ctx.reply(
-            `${ctx.update.message.from.first_name}, сейчас в Волгограде ${date.toLocaleDateString()}\nСейчас температура ${Math.round(data.main.temp)}°C, ощущается как ${Math.round(data.main.feels_like)}°C
-        `)
-
-        // console.log(data)
-    } catch(e) {
-        const errorCode = e?.response?.data?.cod;
-
-        if (errorCode === 401) {
-            ctx.reply('Что-то не так с доступом к сервису погоды')
-            return
-        }
-
-        if (errorCode === 429) {
-            ctx.reply('Превышен лимит запросов к сервису погоды')
-            return
-        }
-
+        ctx.reply(response.choices.message.content)
+    } catch (e) {
         console.log(e)
-        ctx.reply('Что-то пошло не так')
     }
 })
 
