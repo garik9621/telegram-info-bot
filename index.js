@@ -1,12 +1,10 @@
 require('dotenv').config()
-const { Telegraf } = require('telegraf')
-const { message } = require('telegraf/filters')
+const { Telegraf, Markup} = require('telegraf')
 const {weatherCommand} = require('./src/weatherCommand')
 const {gigaCommand} = require('./src/gigaCommand')
-const axios = require('axios')
-const qs = require('qs')
-const { v4: uuidv4 } = require('uuid')
+const {pictureCommand} = require("./src/pictureCommand");
 const path = require('path')
+const {message} = require("telegraf/filters");
 process.env.NODE_EXTRA_CA_CERTS= path.resolve(__dirname, 'certificates')
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
@@ -20,6 +18,22 @@ bot.command('weather', async (ctx) => {
 
 bot.command('giga', async (ctx) => {
     await gigaCommand(ctx);
+})
+
+bot.command('picture', async (ctx) => {
+    await pictureCommand(ctx);
+})
+
+bot.hears('buttons', (ctx) => {
+    ctx.reply('Choose your destiny', Markup.keyboard(['search', 'ads']).oneTime().resize())
+})
+
+bot.hears('search', (ctx) => {
+    ctx.reply('you pressed search button');
+})
+
+bot.hears('ads', (ctx) => {
+    ctx.reply('you pressed ads button');
 })
 
 bot.launch()

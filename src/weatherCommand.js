@@ -37,8 +37,8 @@ async function weatherCommand(ctx) {
         //         country: 'RU',
         //         sunrise: 1710213679,
         //         sunset: 1710255734
-        // },
-//                  timezone: 10800,
+        //      },
+        //                  timezone: 10800,
         //         id: 472757,
         //     name: 'Volgograd',
         //     cod: 200
