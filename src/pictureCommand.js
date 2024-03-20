@@ -1,21 +1,25 @@
 const axios = require("axios");
-const jsdom = require("jsdom");
-const { JSDOM } = jsdom;
 
-// TODO найти free api для картинок
 async function pictureCommand(ctx) {
     const [, ...pictureText] = ctx.update.message.text.split(' ');
 
     try {
-        const { data: pageCode } = await axios.get(`https://yandex.ru/images/search?text=${pictureText.join('')}`)
+        const { data } = await axios({
+            method: 'get',
+            url: `https://api.unsplash.com/search/photos`,
+            headers: {
+                'Accept-Version': 'v1',
+                Authorization: `Client-ID ${process.env.UNSPLASH_API_KEY}`
+            },
+            params: {
+                query: pictureText.join(' '),
+                per_page: 100
+            }
+        })
 
-        const dom = new JSDOM(pageCode);
-        const targetImage = dom.window.document.querySelector('.page-layout')?.querySelector('img');
-
-        const targetImageSrc = targetImage?.getAttribute('src');
-
-        if (targetImageSrc) {
-            ctx.replyWithPhoto(targetImageSrc)
+        if (data?.results.length > 0) {
+            const randomIndex = Math.floor(Math.random() * (data.results.length - 1));
+            ctx.replyWithPhoto(data.results[randomIndex].links.download)
             return
         }
 
@@ -23,7 +27,7 @@ async function pictureCommand(ctx) {
 
     } catch(e) {
         ctx.reply(e);
-        console.log(e)
+        ctx.reply('Изображение не найдено :(')
     }
 }
 
